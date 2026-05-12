@@ -52,8 +52,8 @@ SENSITIVE_CONFIG_KEYS = {
 SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
 SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
-BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
-BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini")
+BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini", "deepseek", "ollama")
+BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini", "ollama")
 
 
 def _warn_if_unconfigured() -> None:
@@ -110,24 +110,95 @@ HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
 
+MEM0_DEFAULT_LLM_PROVIDER = os.environ.get("MEM0_DEFAULT_LLM_PROVIDER", "openai")
+MEM0_DEFAULT_EMBEDDER_PROVIDER = os.environ.get("MEM0_DEFAULT_EMBEDDER_PROVIDER", "openai")
+
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
+
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL")
+MEM0_OLLAMA_LLM_MODEL = os.environ.get("MEM0_OLLAMA_LLM_MODEL")
+MEM0_OLLAMA_EMBEDDING_MODEL = os.environ.get("MEM0_OLLAMA_EMBEDDING_MODEL")
+MEM0_OLLAMA_EMBEDDING_DIMS = os.environ.get("MEM0_OLLAMA_EMBEDDING_DIMS")
+
+
+def _resolve_llm_model(default_model: str) -> str:
+    return DEFAULT_LLM_MODEL if DEFAULT_LLM_MODEL != "gpt-4.1-nano-2025-04-14" else default_model
+
+
+def _resolve_embedder_model(default_model: str) -> str:
+    return DEFAULT_EMBEDDER_MODEL if DEFAULT_EMBEDDER_MODEL != "text-embedding-3-small" else default_model
+
+
+def _build_llm_config():
+    provider = MEM0_DEFAULT_LLM_PROVIDER
+    config = {"temperature": 0.2, "model": DEFAULT_LLM_MODEL}
+
+    if provider == "openai":
+        config["api_key"] = OPENAI_API_KEY
+        if OPENAI_BASE_URL:
+            config["openai_base_url"] = OPENAI_BASE_URL
+    elif provider == "deepseek":
+        config["api_key"] = DEEPSEEK_API_KEY
+        config["model"] = _resolve_llm_model("deepseek-chat")
+    elif provider == "ollama":
+        if OLLAMA_BASE_URL:
+            config["ollama_base_url"] = OLLAMA_BASE_URL
+        config["model"] = MEM0_OLLAMA_LLM_MODEL or _resolve_llm_model("llama3.1:70b")
+    elif provider == "anthropic":
+        config["api_key"] = os.environ.get("ANTHROPIC_API_KEY")
+        config["model"] = _resolve_llm_model("claude-3-5-sonnet-20240620")
+    elif provider == "gemini":
+        config["api_key"] = os.environ.get("GEMINI_API_KEY")
+        config["model"] = _resolve_llm_model("gemini-1.5-flash")
+
+    return {"provider": provider, "config": config}
+
+
+def _build_embedder_config():
+    provider = MEM0_DEFAULT_EMBEDDER_PROVIDER
+    config = {"model": DEFAULT_EMBEDDER_MODEL}
+
+    if provider == "openai":
+        config["api_key"] = OPENAI_API_KEY
+        if OPENAI_BASE_URL:
+            config["openai_base_url"] = OPENAI_BASE_URL
+    elif provider == "ollama":
+        if OLLAMA_BASE_URL:
+            config["ollama_base_url"] = OLLAMA_BASE_URL
+        config["model"] = MEM0_OLLAMA_EMBEDDING_MODEL or _resolve_embedder_model("nomic-embed-text")
+        if MEM0_OLLAMA_EMBEDDING_DIMS:
+            config["embedding_dims"] = int(MEM0_OLLAMA_EMBEDDING_DIMS)
+        elif config["model"] == "nomic-embed-text":
+            config["embedding_dims"] = 768
+    elif provider == "gemini":
+        config["api_key"] = os.environ.get("GEMINI_API_KEY")
+        config["model"] = _resolve_embedder_model("models/text-embedding-004")
+
+    return {"provider": provider, "config": config}
+
+
+def _build_vector_store_config():
+    config = {
+        "host": POSTGRES_HOST,
+        "port": int(POSTGRES_PORT),
+        "dbname": POSTGRES_DB,
+        "user": POSTGRES_USER,
+        "password": POSTGRES_PASSWORD,
+        "collection_name": POSTGRES_COLLECTION_NAME,
+    }
+    embedder = _build_embedder_config()
+    dims = embedder.get("config", {}).get("embedding_dims")
+    if dims:
+        config["embedding_model_dims"] = dims
+    return config
+
+
 DEFAULT_CONFIG = {
     "version": "v1.1",
-    "vector_store": {
-        "provider": "pgvector",
-        "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
-        },
-    },
-    "llm": {
-        "provider": "openai",
-        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
-    },
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
+    "vector_store": {"provider": "pgvector", "config": _build_vector_store_config()},
+    "llm": _build_llm_config(),
+    "embedder": _build_embedder_config(),
     "history_db_path": HISTORY_DB_PATH,
 }
 
