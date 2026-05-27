@@ -110,8 +110,8 @@ HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
 
-MEM0_DEFAULT_LLM_PROVIDER = os.environ.get("MEM0_DEFAULT_LLM_PROVIDER", "openai")
-MEM0_DEFAULT_EMBEDDER_PROVIDER = os.environ.get("MEM0_DEFAULT_EMBEDDER_PROVIDER", "openai")
+MEM0_DEFAULT_LLM_PROVIDER = os.environ.get("MEM0_LLM_PROVIDER", "openai")
+MEM0_DEFAULT_EMBEDDER_PROVIDER = os.environ.get("MEM0_EMBEDDER_PROVIDER", "openai")
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
@@ -169,6 +169,8 @@ def _build_embedder_config():
         config["model"] = MEM0_OLLAMA_EMBEDDING_MODEL or _resolve_embedder_model("nomic-embed-text")
         if MEM0_OLLAMA_EMBEDDING_DIMS:
             config["embedding_dims"] = int(MEM0_OLLAMA_EMBEDDING_DIMS)
+        elif config["model"].startswith("bge-m3"):
+            config["embedding_dims"] = 1024
         elif config["model"] == "nomic-embed-text":
             config["embedding_dims"] = 768
     elif provider == "gemini":
@@ -488,6 +490,13 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
+        entity_params = {}
+        for key in ("user_id", "agent_id", "run_id"):
+            if key in params:
+                entity_params[key] = params.pop(key)
+        if entity_params:
+            existing_filters = params.get("filters", {}) or {}
+            params["filters"] = {**entity_params, **existing_filters}
         return get_memory_instance().search(query=search_req.query, **params)
     except Exception:
         raise upstream_error()

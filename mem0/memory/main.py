@@ -733,6 +733,7 @@ class Memory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            use_input_language=True,
         )
 
         try:
@@ -2149,6 +2150,7 @@ class AsyncMemory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            use_input_language=True,
         )
 
         try:
@@ -2778,8 +2780,8 @@ class AsyncMemory(MemoryBase):
         )
 
         # Step 4: Keyword search (if store supports it)
-        keyword_results = await asyncio.to_thread(
-            self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
+        keyword_results = self.vector_store.keyword_search(
+            query=query_lemmatized, top_k=internal_limit, filters=filters
         )
 
         # Step 5: Compute BM25 scores

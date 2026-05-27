@@ -2,6 +2,7 @@ import json
 import logging
 from contextlib import contextmanager
 from typing import Any, List, Optional
+from urllib.parse import quote_plus
 
 from pydantic import BaseModel
 
@@ -96,7 +97,7 @@ class PGVector(VectorStoreBase):
                     # Add sslmode to connection string
                     connection_string = f"{connection_string} sslmode={sslmode}"
         else:
-            connection_string = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
+            connection_string = f"postgresql://{quote_plus(user)}:{quote_plus(password)}@{host}:{port}/{dbname}"
             if sslmode:
                 connection_string = f"{connection_string} sslmode={sslmode}"
         
@@ -250,10 +251,10 @@ class PGVector(VectorStoreBase):
         with self._get_cursor() as cur:
             cur.execute(
                 sql.SQL("""
-                SELECT id, vector <=> %s::vector AS distance, payload
+                SELECT id, 1 - (vector <=> %s::vector) AS score, payload
                 FROM {}
                 {}
-                ORDER BY distance
+                ORDER BY score DESC
                 LIMIT %s
                 """).format(self._col(), filter_clause),
                 (vectors, *filter_params, top_k),

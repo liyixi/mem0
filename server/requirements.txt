@@ -11,6 +11,7 @@ psycopg-pool>=3.2.6,<4.0.0
 anthropic>=0.39,<1.0
 google-generativeai>=0.8,<1.0
 ollama>=0.3.0
+ollama>=0.4,<1.0
 
 # Auth & database (Phase 1)
 sqlalchemy>=2.0,<3.0
