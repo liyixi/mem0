@@ -1,0 +1,79 @@
+# ============================================================
+# Mem0 Standalone Docker Compose (远程 PostgreSQL + 本地 Ollama)
+# 基于 .vscode/launch.json 参数，由 Claude 生成于 2026-06-01
+#
+# 用法:
+#   docker compose -f docker-compose.standalone.yaml up -d
+#   docker compose -f docker-compose.standalone.yaml logs -f mem0
+# ============================================================
+
+name: mem0-standalone
+
+services:
+  mem0:
+    build:
+      context: ..
+      dockerfile: server/dev.Dockerfile
+    ports:
+      - "8888:8000"
+    networks:
+      - mem0_network
+    volumes:
+      - ./history:/app/history
+    command: >
+      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      # ===== LLM 提供商: DeepSeek =====
+      - MEM0_LLM_PROVIDER=deepseek
+      - MEM0_DEFAULT_LLM_MODEL=deepseek-v4-flash
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      # ===== Embedder 提供商: Ollama (本地) =====
+      - MEM0_EMBEDDER_PROVIDER=ollama
+      - MEM0_DEFAULT_EMBEDDER_MODEL=bge-m3:latest
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      # ===== PostgreSQL (远程服务器) =====
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_COLLECTION_NAME=${POSTGRES_COLLECTION_NAME:-memories}
+      - APP_DB_NAME=${APP_DB_NAME}
+      # ===== 认证与安全 =====
+      - AUTH_DISABLED=false
+      - JWT_SECRET=${JWT_SECRET}
+      # ===== Dashboard =====
+      - DASHBOARD_URL=http://localhost:3001
+      # ===== 历史记录 =====
+      - HISTORY_DB_PATH=/app/history/history.db
+      # ===== 遥测 =====
+      - MEM0_TELEMETRY=false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  mem0-dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile.standalone
+    ports:
+      - "3001:3000"
+    networks:
+      - mem0_network
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8888
+      - API_INTERNAL_URL=http://mem0:8000
+      - NEXT_PUBLIC_INSTANCE_NAME=Mem0
+    depends_on:
+      mem0:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  mem0_network:
+    driver: bridge
