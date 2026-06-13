@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "mem0": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "E:/studywork/mem0-custom-mcp/dist/index.js"
+      ],
+      "env": {
+        "MEM0_API_URL": "http://localhost:8000",
+        "DEFAULT_USER_ID": "liyixi_claude_code"
+      }      
+    }
+  }
+}
