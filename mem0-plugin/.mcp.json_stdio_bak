@@ -7,8 +7,10 @@
         "E:/studywork/mem0-custom-mcp/dist/index.js"
       ],
       "env": {
-        "MEM0_API_URL": "http://localhost:8000",
-        "DEFAULT_USER_ID": "这里需要在claude 配置文件中增加MEM0_USER_ID的环境变量供HOOKS使用，MEM0_API_URL同理"
+        "MEM0_API_URL": "http://localhost:8888",
+        "MEM0_USER_ID": "myCoder",
+        "MEM0_API_KEY": "使用APK_KEY连接mem0 server",
+        "MEM0_API_KEY_HEADER": "X-API-Key"
       }      
     }
   }
