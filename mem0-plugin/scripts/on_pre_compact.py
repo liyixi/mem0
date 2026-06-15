@@ -41,7 +41,10 @@ if os.environ.get("MEM0_DEBUG"):
     except OSError:
         pass
 
-API_URL = "https://api.mem0.ai"
+_raw_api_url = os.environ.get("MEM0_API_URL", "https://api.mem0.ai").rstrip("/")
+_IS_CLOUD = "api.mem0.ai" in _raw_api_url
+API_URL = _raw_api_url
+MEMORIES_ENDPOINT = f"{API_URL}/v1/memories/" if _IS_CLOUD else f"{API_URL}/memories"
 MAX_TAIL_LINES = 500
 MAX_USER_MESSAGES = 30
 MAX_BASH_COMMANDS = 20
@@ -185,7 +188,7 @@ def store_memory(api_key: str, content: str, user_id: str, source: str, session_
 
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
-        f"{API_URL}/v1/memories/",
+        MEMORIES_ENDPOINT,
         data=data,
         headers={
             "Content-Type": "application/json",
