@@ -8,7 +8,7 @@
       ],
       "env": {
         "MEM0_API_URL": "http://localhost:8000",
-        "DEFAULT_USER_ID": "liyixi_claude_code"
+        "DEFAULT_USER_ID": "这里需要在claude 配置文件中增加MEM0_USER_ID的环境变量供HOOKS使用，MEM0_API_URL同理"
       }      
     }
   }
